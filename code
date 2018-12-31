@@ -1,0 +1,154 @@
+// This #include statement was automatically added by the Particle IDE.
+#include <Adafruit_DHT.h>
+
+// This #include statement was automatically added by the Particle IDE.
+#include "Ubidots.h"
+
+
+
+TCPClient client; 
+
+#define THINGNAME "woinja" //change the name in the " " can be anything.  "upstairsbath"  This is for naming your device on dweet.io
+// I use the name that is given to the photon.  Don't use spaces.
+// DHT parameters
+// DHT parameters
+#define DHTPIN 1
+#define DHTTYPE DHT22
+
+#define TOKEN "token"  // Put here your Ubidots TOKEN
+//#define DATA_SOURCE_NAME "ElectronSleepNew"
+Ubidots ubidots(TOKEN);
+//ubidots.setDatasourceName(DATA_SOURCE_NAME); //This name will automatically show up in Ubidots the first time you post data. 
+ 
+// Variables
+float temperature = 25;
+float humidity = 25;
+float humidityOld = 25;
+float temperatureOld = 25;
+//int blue = D7;
+
+long pm10 = 0;
+long pm25 = 0;
+long pm100 = 0;
+
+DHT dht(DHTPIN, DHTTYPE);
+
+
+
+ void setup() {
+  Serial.begin(9600);
+  Serial1.begin(9600);
+   //pinMode(blue, OUTPUT);
+   dht.begin();
+}
+
+
+
+ void loop() {
+     
+    
+     
+  int index = 0;
+  char value;
+  char previousValue;
+   while (Serial1.available()) {
+    value = Serial1.read();
+    if ((index == 0 && value != 0x42) || (index == 1 && value != 0x4d)){
+      Serial.println("Cannot find the data header.");
+      break;
+    }
+     if (index == 4 || index == 6 || index == 8 || index == 10 || index == 12 || index == 14) {
+      previousValue = value;
+    }
+    else if (index == 5){
+      pm10 = 256 * previousValue + value;
+      Serial.print("{ ");
+      Serial.print("\"pm10\": ");
+      Serial.print(pm10);
+      Serial.print(", ");
+    }
+    else if (index == 7){
+      pm25 = 256 * previousValue + value;
+      Serial.print("\"pm25\": ");
+      Serial.print(pm25);
+      Serial.print(", ");
+    }
+    else if (index == 9){
+      pm100 = 256 * previousValue + value;
+      Serial.print("\"pm100\": ");
+      Serial.print(pm100);
+    } else if (index > 15) {
+      break;
+    }
+    index++;
+  }
+  while(Serial1.available()) Serial1.read();
+  Serial.println(" }");
+  
+  
+    // Humidity measurement
+    temperature = dht.getTempCelcius();
+    
+    // Humidity measurement
+    humidity = dht.getHumidity();
+
+   // if ((humidity-humidityOld) > 10) {
+     //  humidity = humidityOld;
+       // }
+        
+    //if ((temperatureOld-temperature) > 10) {
+      // temperature = temperatureOld;
+        //}
+        temperature = (temperature * 1.8) + 32;
+   // }
+    // Publish data
+    Spark.publish("temperature", String(temperature) + " °F", PRIVATE);
+    delay(2000);
+    Spark.publish("humidity", String(humidity) + "%");
+    delay(2000);
+    Spark.publish("pm25", String(pm25) + " ug/m3");
+    delay(2000);
+    Spark.publish("pm1", String(pm10) + " ug/m3");
+    delay(2000);
+    Spark.publish("pm10", String(pm100) + " ug/m3");
+    delay(2000);
+    
+  
+   ubidots.add("pm25", pm25);  // Change for your variable name
+    ubidots.add("pm10", pm100);
+    ubidots.add("pm1", pm10);
+    ubidots.add("tempF", temperature);
+    ubidots.add("humidity", humidity);
+    
+    ubidots.sendAll(); // Send fuel gauge data to your Ubidots account. 
+  
+  
+  if (client.connect("dweet.io", 80))  
+    // Go to  http://dweet.io/follow/thingname  to see the results in your browser. change "thingname" to your thingname
+    {
+ 
+      client.print("GET /dweet/for/");
+      client.print(THINGNAME);
+      client.print("?PM1=");  // Don't use spaces for data names
+      client.print(pm10);
+      client.print("&PM25=");  // Don't use spaces for data names
+      client.print(pm25);
+      client.print("&PM10=");  // Don't use spaces for data names
+      client.print(pm100);
+      client.print("&TempF=");  // Don't use spaces for data names
+      client.print(temperature);
+      client.print("&humidityPercent=");  // Don't use spaces for data names
+      client.print(humidity);
+      client.println(" HTTP/1.1");
+      client.println("Host: dweet.io");
+      client.println("Connection: close");
+      client.println();
+           } 
+           // ends publishing to DWEET
+           
+   
+
+    //humidityOld = humidity;
+    //temperatureOld = temperature;
+  delay(10000);
+} 
