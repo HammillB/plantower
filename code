@@ -4,7 +4,7 @@
 // This #include statement was automatically added by the Particle IDE.
 #include "Ubidots.h"
 
-
+//on a photon connect Vin pin to VCC on sensor. it needs 5v.  otherwise use GND, RX, TX, to finish wiring air sensor
 
 TCPClient client; 
 
@@ -21,11 +21,7 @@ Ubidots ubidots(TOKEN);
 //ubidots.setDatasourceName(DATA_SOURCE_NAME); //This name will automatically show up in Ubidots the first time you post data. 
  
 // Variables
-float temperature = 25;
-float humidity = 25;
-float humidityOld = 25;
-float temperatureOld = 25;
-//int blue = D7;
+
 
 long pm10 = 0;
 long pm25 = 0;
@@ -92,13 +88,7 @@ DHT dht(DHTPIN, DHTTYPE);
     // Humidity measurement
     humidity = dht.getHumidity();
 
-   // if ((humidity-humidityOld) > 10) {
-     //  humidity = humidityOld;
-       // }
-        
-    //if ((temperatureOld-temperature) > 10) {
-      // temperature = temperatureOld;
-        //}
+  
         temperature = (temperature * 1.8) + 32;
    // }
     // Publish data
@@ -120,7 +110,7 @@ DHT dht(DHTPIN, DHTTYPE);
     ubidots.add("tempF", temperature);
     ubidots.add("humidity", humidity);
     
-    ubidots.sendAll(); // Send fuel gauge data to your Ubidots account. 
+    ubidots.sendAll(); //  
   
   
   if (client.connect("dweet.io", 80))  
@@ -148,7 +138,6 @@ DHT dht(DHTPIN, DHTTYPE);
            
    
 
-    //humidityOld = humidity;
-    //temperatureOld = temperature;
+   
   delay(10000);
 } 
