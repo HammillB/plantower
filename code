@@ -4,43 +4,61 @@
 // This #include statement was automatically added by the Particle IDE.
 #include "Ubidots.h"
 
-//on a photon connect Vin pin to VCC on sensor. it needs 5v.  otherwise use GND, RX, TX, to finish wiring air sensor
-
 TCPClient client; 
 
-#define THINGNAME "woinja" //change the name in the " " can be anything.  "upstairsbath"  This is for naming your device on dweet.io
+#define THINGNAME "wombatja" //change the name in the " " can be anything.  "upstairsbath"  This is for naming your device on dweet.io
 // I use the name that is given to the photon.  Don't use spaces.
 // DHT parameters
 // DHT parameters
-#define DHTPIN 1
+#define DHTPIN 5
 #define DHTTYPE DHT22
 
-#define TOKEN "token"  // Put here your Ubidots TOKEN
-//#define DATA_SOURCE_NAME "ElectronSleepNew"
+#define TOKEN "A1E-ozIHRyzNgeBg1uNjfO8lO8"  // Put here your Ubidots TOKEN
 Ubidots ubidots(TOKEN);
-//ubidots.setDatasourceName(DATA_SOURCE_NAME); //This name will automatically show up in Ubidots the first time you post data. 
- 
-// Variables
 
+// Variables
+int SLEEP = D7;  //Use the builtin LED on pin 7 to determine when it is awake and asleep. off = asleep, on = awake
+int REDled = D1;
+int GREENled = D2;
+int BLUEled = D3;
+int LEDpower = D0; //this pin will power the LED
+
+float temperature; //= 25;
+float humidity; //= 25;
+float brightness = 80;  // this is how bright you want the LED.  0 is off, 255 is full brightness.  You can change this
 
 long pm10 = 0;
 long pm25 = 0;
 long pm100 = 0;
+String colour;
+
+uint8_t wake[] = { 0x42, 0x4D, 0xE4, 0x00, 0x01, 0x01, 0x74 };
+uint8_t sleep[] = { 0x42, 0x4D, 0xE4, 0x00, 0x00, 0x01, 0x73 };
 
 DHT dht(DHTPIN, DHTTYPE);
-
-
 
  void setup() {
   Serial.begin(9600);
   Serial1.begin(9600);
-   //pinMode(blue, OUTPUT);
    dht.begin();
+   pinMode(REDled, OUTPUT);
+   pinMode(GREENled, OUTPUT);
+   pinMode(BLUEled, OUTPUT);
+   pinMode(LEDpower, OUTPUT);
+   analogWrite(LEDpower, brightness); //turns on the LEDpower pin to whatever brightness power you have choosen.  It will stay on.
+   pinMode(SLEEP, OUTPUT);
 }
 
 
 
  void loop() {
+     
+     //comment out the next five lines if you don't want to use the sleep feature between readings
+      digitalWrite(SLEEP, HIGH);
+      delay(10000);
+      Serial1.write(wake, sizeof(wake));
+      Serial.print("Awake");
+      delay(20000);
      
     
      
@@ -81,16 +99,58 @@ DHT dht(DHTPIN, DHTTYPE);
   while(Serial1.available()) Serial1.read();
   Serial.println(" }");
   
-  
-    // Humidity measurement
-    temperature = dht.getTempCelcius();
+   temperature = dht.getTempCelcius();  // Humidity measurement
+   humidity = dht.getHumidity();  // Humidity measurement
+   temperature = (temperature * 1.8) + 32; // Convert C to F
+   
+   
+   //this section controls what color the LED is showing on different PM25 levels. HIGH = off  LOW = on  Feel free to change the cutoff numbers.
+    if (pm25 < 10) //green
+    {
+        digitalWrite(REDled, HIGH);
+        digitalWrite(GREENled, LOW);
+        digitalWrite(BLUEled, HIGH);
+        colour = "green";
+        
+    }
+    if (pm25 < 20 && pm25 > 10)  // cyan
+ {
+        digitalWrite(REDled, HIGH);
+        digitalWrite(GREENled, LOW);
+        digitalWrite(BLUEled, LOW);
+        colour = "cyan";
+    }
+     if (pm25 < 30 && pm25 > 20) // blue
+ {
+        digitalWrite(REDled, HIGH);
+        digitalWrite(GREENled, HIGH);
+        digitalWrite(BLUEled, LOW);
+        colour = "blue";
+    }
+     if (pm25 < 40 && pm25 > 30) // magenta
+ {
+        digitalWrite(REDled, LOW);
+        digitalWrite(GREENled, HIGH);
+        digitalWrite(BLUEled, LOW);
+        colour = "magenta";
+    }
+     if (pm25 < 100 && pm25 > 40)// red
+ {
+        digitalWrite(REDled, LOW);
+        digitalWrite(GREENled, HIGH);
+        digitalWrite(BLUEled, HIGH);
+        colour = "red";
+    }
+       if (pm25 > 100)  // white
+ {
+        digitalWrite(REDled, LOW);
+        digitalWrite(GREENled, LOW);
+        digitalWrite(BLUEled, LOW);
+        colour = "white";
+    }
+    //ends the LED control section
     
-    // Humidity measurement
-    humidity = dht.getHumidity();
-
-  
-        temperature = (temperature * 1.8) + 32;
-   // }
+    
     // Publish data
     Spark.publish("temperature", String(temperature) + " °F", PRIVATE);
     delay(2000);
@@ -102,6 +162,8 @@ DHT dht(DHTPIN, DHTTYPE);
     delay(2000);
     Spark.publish("pm10", String(pm100) + " ug/m3");
     delay(2000);
+    Spark.publish("colour", String(colour));
+    delay(2000);
     
   
    ubidots.add("pm25", pm25);  // Change for your variable name
@@ -110,7 +172,7 @@ DHT dht(DHTPIN, DHTTYPE);
     ubidots.add("tempF", temperature);
     ubidots.add("humidity", humidity);
     
-    ubidots.sendAll(); //  
+    ubidots.sendAll(); // Send data to your Ubidots account. 
   
   
   if (client.connect("dweet.io", 80))  
@@ -138,6 +200,11 @@ DHT dht(DHTPIN, DHTTYPE);
            
    
 
-   
-  delay(10000);
+
+//comment out the next five lines if you don't want to use the sleep feature
+   Serial1.write(sleep, sizeof(sleep));
+   delay(3000);
+   digitalWrite(SLEEP, LOW);
+   Serial.print("Asleep");
+    delay(30000);  //this delay sets how long between readings.  30000 = 30 sec
 } 
