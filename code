@@ -1,23 +1,26 @@
+//https://www.hackster.io/chshammill/pms-5003-laser-air-sensor-with-photon-2e8e05
+
+
 // This #include statement was automatically added by the Particle IDE.
 #include <Adafruit_DHT.h>
 
 // This #include statement was automatically added by the Particle IDE.
-#include "Ubidots.h"
+//#include "Ubidots.h"
 
 TCPClient client; 
 
-#define THINGNAME "wombatja" //change the name in the " " can be anything.  "upstairsbath"  This is for naming your device on dweet.io
+#define THINGNAME "wombaa2" //change the name in the " " can be anything.  "upstairsbath"  This is for naming your device on dweet.io
 // I use the name that is given to the photon.  Don't use spaces.
 // DHT parameters
 // DHT parameters
 #define DHTPIN 5
 #define DHTTYPE DHT22
 
-#define TOKEN "A1E-ozIHRyzNgeBg1uNjfO8lO8"  // Put here your Ubidots TOKEN
-Ubidots ubidots(TOKEN);
-
+//#define TOKEN "A1E-"  // Put here your Ubidots TOKEN
+//Ubidots ubidots(TOKEN);
+//ubidots.setDatasourceName(DATA_SOURCE_NAME); //This name will automatically show up in Ubidots the first time you post data. 
 // Variables
-int SLEEP = D7;  //Use the builtin LED on pin 7 to determine when it is awake and asleep. off = asleep, on = awake
+int SLEEPLED = D7;  //Use the builtin LED on pin 7 to determine when it is awake and asleep. off = asleep, on = awake
 int REDled = D1;
 int GREENled = D2;
 int BLUEled = D3;
@@ -25,17 +28,20 @@ int LEDpower = D0; //this pin will power the LED
 
 float temperature; //= 25;
 float humidity; //= 25;
-float brightness = 80;  // this is how bright you want the LED.  0 is off, 255 is full brightness.  You can change this
+float brightness = 40;  // this is how bright you want the LED.  0 is off, 255 is full brightness.  You can change this
 
 long pm10 = 0;
 long pm25 = 0;
 long pm100 = 0;
+long filter = 0;
 String colour;
 
 uint8_t wake[] = { 0x42, 0x4D, 0xE4, 0x00, 0x01, 0x01, 0x74 };
-uint8_t sleep[] = { 0x42, 0x4D, 0xE4, 0x00, 0x00, 0x01, 0x73 };
+uint8_t sleep1[] = { 0x42, 0x4D, 0xE4, 0x00, 0x00, 0x01, 0x73 };
+//uint8_t sleep[] = { 0x42, 0x4D, 0xE4, 0x00, 0x00, 0x01, 0x73 };
 
 DHT dht(DHTPIN, DHTTYPE);
+
 
  void setup() {
   Serial.begin(9600);
@@ -46,19 +52,20 @@ DHT dht(DHTPIN, DHTTYPE);
    pinMode(BLUEled, OUTPUT);
    pinMode(LEDpower, OUTPUT);
    analogWrite(LEDpower, brightness); //turns on the LEDpower pin to whatever brightness power you have choosen.  It will stay on.
-   pinMode(SLEEP, OUTPUT);
+   pinMode(SLEEPLED, OUTPUT);
 }
 
 
 
  void loop() {
-     
-     //comment out the next five lines if you don't want to use the sleep feature between readings
-      digitalWrite(SLEEP, HIGH);
+     // digitalWrite(SLEEPLED, HIGH);
       delay(10000);
-      Serial1.write(wake, sizeof(wake));
-      Serial.print("Awake");
-      delay(20000);
+     
+     Serial1.write(wake, sizeof(wake));
+     Serial.print("Awake");
+      
+     delay(20000);
+    
      
     
      
@@ -152,27 +159,31 @@ DHT dht(DHTPIN, DHTTYPE);
     
     
     // Publish data
-    Spark.publish("temperature", String(temperature) + " °F", PRIVATE);
+    Particle.publish("temperature", String(temperature) + " °F", PRIVATE);
     delay(2000);
-    Spark.publish("humidity", String(humidity) + "%");
+    Particle.publish("humidity", String(humidity) + "%");
     delay(2000);
-    Spark.publish("pm25", String(pm25) + " ug/m3");
+    Particle.publish("pm25", String(pm25) + " ug/m3");
     delay(2000);
-    Spark.publish("pm1", String(pm10) + " ug/m3");
+    Particle.publish("pm1", String(pm10) + " ug/m3");
     delay(2000);
-    Spark.publish("pm10", String(pm100) + " ug/m3");
+    Particle.publish("pm10", String(pm100) + " ug/m3");
     delay(2000);
-    Spark.publish("colour", String(colour));
+    Particle.publish("colour", String(colour));
     delay(2000);
+    if (pm25 > 15 && filter == 0) { 
+        filter = 1;
+        Particle.publish("filter", String(filter));}
+        
+    if (pm25 < 10 && filter == 1) {
+            filter = 0;
+        Particle.publish("filter", String(filter));
+        }
     
   
-   ubidots.add("pm25", pm25);  // Change for your variable name
-    ubidots.add("pm10", pm100);
-    ubidots.add("pm1", pm10);
-    ubidots.add("tempF", temperature);
-    ubidots.add("humidity", humidity);
-    
-    ubidots.sendAll(); // Send data to your Ubidots account. 
+  
+  
+  
   
   
   if (client.connect("dweet.io", 80))  
@@ -200,11 +211,13 @@ DHT dht(DHTPIN, DHTTYPE);
            
    
 
+uint8_t sleep[] = { 0x42, 0x4D, 0xE4, 0x00, 0x00, 0x01, 0x73 };
 
-//comment out the next five lines if you don't want to use the sleep feature
    Serial1.write(sleep, sizeof(sleep));
    delay(3000);
-   digitalWrite(SLEEP, LOW);
+  // digitalWrite(SLEEPLED, LOW);
    Serial.print("Asleep");
-    delay(30000);  //this delay sets how long between readings.  30000 = 30 sec
+  
+  delay(120000);
+  
 } 
